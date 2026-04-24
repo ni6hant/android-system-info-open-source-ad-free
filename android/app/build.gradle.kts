@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.system_info"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -19,13 +19,25 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+defaultConfig {
+        // Your app's unique identifier on the Play Store.
+        // Before publishing you MUST change this from com.example
+        // to something unique like com.yournname.systeminfo
+        // Docs: https://developer.android.com/studio/build/application-id
         applicationId = "com.example.system_info"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+
+        // Minimum Android version that can install this app.
+        // 21 = Android 5.0 Lollipop — covers 99%+ of active devices.
+        // We set this explicitly rather than relying on Flutter's default
+        // so we always know exactly what we're targeting.
+        // Docs: https://developer.android.com/reference/android/os/Build.VERSION_CODES
         minSdk = flutter.minSdkVersion
+
+        // The Android version we've tested and optimized for.
+        // Google requires this to be 33+ for new Play Store submissions.
+        // Docs: https://developer.android.com/google/play/requirements/target-sdk
         targetSdk = 35
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

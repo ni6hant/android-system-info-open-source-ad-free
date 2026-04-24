@@ -30,7 +30,36 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+
     </application>
+
+            <!-- ACCESS_NETWORK_STATE — Allows reading network connection type
+         (wifi, mobile, ethernet etc). Normal permission, auto-granted.
+         Docs: https://developer.android.com/reference/android/Manifest.permission#ACCESS_NETWORK_STATE -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ACCESS_WIFI_STATE — Allows reading wifi connection details
+         like BSSID and link speed. Normal permission, auto-granted.
+         Docs: https://developer.android.com/reference/android/Manifest.permission#ACCESS_WIFI_STATE -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!-- CHANGE_NETWORK_STATE — Required by connectivity_plus internally
+         Normal permission, auto-granted.
+         Docs: https://developer.android.com/reference/android/Manifest.permission#CHANGE_NETWORK_STATE -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- ACCESS_FINE_LOCATION — Required on Android 8+ to read wifi SSID.
+         This is a DANGEROUS permission — the user will see a popup
+         asking them to approve it at runtime.
+         Docs: https://developer.android.com/reference/android/Manifest.permission#ACCESS_FINE_LOCATION -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Required by permission_handler package to check and request
+         runtime permissions like location.
+         Docs: https://pub.dev/packages/permission_handler -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

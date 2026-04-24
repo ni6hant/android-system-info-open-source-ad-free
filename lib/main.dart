@@ -7,6 +7,9 @@
 // Docs: https://api.flutter.dev/flutter/material/material-library.html
 import 'package:flutter/material.dart';
 
+// dart:math gives us log() and pow() for the byte conversion
+import 'dart:math';
+
 // This is the package we installed via 'flutter pub add device_info_plus'
 // It wraps Android's Build class and gives us device information
 // Docs: https://pub.dev/packages/device_info_plus
@@ -15,6 +18,18 @@ import 'package:device_info_plus/device_info_plus.dart';
 // battery_plus gives us access to battery level and charging state
 // Docs: https://pub.dev/packages/battery_plus
 import 'package:battery_plus/battery_plus.dart';
+
+// connectivity_plus tells us the type of network connection
+// Docs: https://pub.dev/packages/connectivity_plus
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+// network_info_plus gives us detailed wifi information
+// Docs: https://pub.dev/packages/network_info_plus
+import 'package:network_info_plus/network_info_plus.dart';
+
+// permission_handler lets us request runtime permissions
+// Docs: https://pub.dev/packages/permission_handler
+import 'package:permission_handler/permission_handler.dart';
 
 // ============================================================
 // main() — Every Dart program starts here, no exceptions.
@@ -121,6 +136,21 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
   // Docs: https://pub.dev/documentation/battery_plus/latest/battery_plus/Battery-class.html
   final Battery _battery = Battery();
 
+  // Holds the list of current connection types
+  // It's a list because you can be on wifi AND vpn simultaneously
+  // Docs: https://pub.dev/documentation/connectivity_plus/latest/connectivity_plus/ConnectivityResult.html
+  List<ConnectivityResult>? _connectivityResult;
+
+  // Holds detailed wifi information
+  // Nullable because user might not be on wifi at all
+  String? _wifiName;
+  String? _wifiBSSID;
+  String? _wifiIPv4;
+  String? _wifiIPv6;
+  String? _wifiGateway;
+  String? _wifiSubmask;
+  String? _wifiBroadcast;
+
   // ============================================================
   // initState() — Called exactly once when this widget is first
   // inserted into the widget tree. This is the right place to
@@ -132,6 +162,7 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
     super.initState(); // Always call super first
     _fetchDeviceInfo(); // Start fetching as soon as screen loads
     _fetchBatteryInfo(); // Fetch battery info and start listening for changes
+    _fetchNetworkInfo(); // Fetch network info and request location permission
   }
 
   // ============================================================
@@ -203,7 +234,90 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
         _batteryState = newState;
       });
     });
+
+    
   }
+
+  // ============================================================
+  // _fetchNetworkInfo() — Fetches connection type and wifi details.
+  //
+  // This is the most complex fetch so far because:
+  // 1. We need to request a dangerous permission (location) first
+  // 2. We only fetch wifi details if permission is granted
+  // 3. We handle the case where user denies the permission
+  //
+  // This teaches an important pattern — always check permissions
+  // before accessing sensitive data, and always handle denial
+  // gracefully rather than crashing.
+  // ============================================================
+  Future<void> _fetchNetworkInfo() async {
+    // Step 1 — Check connection type first, this needs no permission
+    // Connectivity() is the main class from connectivity_plus
+    // checkConnectivity() returns a List<ConnectivityResult>
+    // Docs: https://pub.dev/documentation/connectivity_plus/latest/connectivity_plus/Connectivity/checkConnectivity.html
+    final connectivity = Connectivity();
+    final connectivityResult = await connectivity.checkConnectivity();
+
+    setState(() {
+      _connectivityResult = connectivityResult;
+    });
+
+    // Step 2 — Request location permission for wifi details
+    // Permission.location refers to ACCESS_FINE_LOCATION that we
+    // declared in AndroidManifest.xml earlier
+    // .request() shows the system popup to the user
+    // Docs: https://pub.dev/documentation/permission_handler/latest/permission_handler/Permission/location.html
+    final locationPermission = await Permission.location.request();
+
+    // Step 3 — Only fetch wifi details if permission was granted
+    // We check for granted specifically — any other PermissionStatus
+    // means we don't have access and should not attempt the call
+    if (locationPermission == PermissionStatus.granted) {
+      // NetworkInfo() is the main class from network_info_plus
+      // Each method is a separate async call to the Android wifi API
+      // Docs: https://pub.dev/documentation/network_info_plus/latest/network_info_plus/NetworkInfo-class.html
+      final networkInfo = NetworkInfo();
+
+      // We fetch all wifi properties in parallel using Future.wait
+      // This is more efficient than awaiting them one by one since
+      // they don't depend on each other
+      // Docs: https://api.flutter.dev/flutter/dart-async/Future/wait.html
+      final results = await Future.wait([
+        networkInfo.getWifiName(),        // SSID e.g. "MyHomeWifi"
+        networkInfo.getWifiBSSID(),       // Router MAC address
+        networkInfo.getWifiIP(),          // Device IPv4 address
+        networkInfo.getWifiIPv6(),        // Device IPv6 address
+        networkInfo.getWifiGatewayIP(),   // Router IP address
+        networkInfo.getWifiSubmask(),     // Subnet mask
+        networkInfo.getWifiBroadcast(),
+      ]);
+
+      setState(() {
+        _wifiName    = results[0] ?? 'Unavailable';
+        _wifiBSSID   = results[1] ?? 'Unavailable';
+        _wifiIPv4    = results[2] ?? 'Unavailable';
+        _wifiIPv6    = results[3] ?? 'Unavailable';
+        _wifiGateway = results[4] ?? 'Unavailable';
+        _wifiSubmask = results[5] ?? 'Unavailable';
+        _wifiBroadcast = results[6] ?? 'Unavailable';
+      });
+
+    } else {
+      // Permission was denied — we update the state to reflect this
+      // so the UI can show a meaningful message instead of empty fields
+      setState(() {
+        _wifiName    = 'Location permission denied';
+        _wifiBSSID   = 'Location permission denied';
+        _wifiIPv4    = 'Location permission denied';
+        _wifiIPv6    = 'Location permission denied';
+        _wifiGateway = 'Location permission denied';
+        _wifiSubmask = 'Location permission denied';
+        _wifiBroadcast = 'Location permission denied';
+      });
+    }
+  }
+
+
 
   // ============================================================
   // build() — Called by Flutter whenever it needs to draw this widget.
@@ -251,40 +365,139 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
           children: [
             InfoCard(
               label: 'Android Version',
-              value: _deviceInfo!.version.release,
+              value: _deviceInfo!.version.release.toString(),
             ),
             InfoCard(
               label: 'API Level',
               value: _deviceInfo!.version.sdkInt.toString(),
+            ),            
+            InfoCard(
+              label: 'Base OS (If Empty: Manufacturer didn\'t bother implementing it)',
+              value: _deviceInfo!.version.baseOS.toString(),
+            ),
+
+            InfoCard(
+              label: 'Board',
+              value: _deviceInfo!.board.toString(),
+            ),
+            InfoCard(
+              label: 'Bootloader',
+              value: _deviceInfo!.bootloader.toString(),
             ),
             InfoCard(
               label: 'Brand',
-              value: _deviceInfo!.brand,
+              value: _deviceInfo!.brand.toString(),
+            ),
+                        InfoCard(
+              label: 'Code Name',
+              value: _deviceInfo!.version.codename.toString(),
             ),
             InfoCard(
               label: 'CPU Architecture',
-              value: _deviceInfo!.supportedAbis.join(', '),
+              value: _deviceInfo!.supportedAbis.join(', ').toString(),
             ),
             InfoCard(
               label: 'Device',
-              value: _deviceInfo!.device,
+              value: _deviceInfo!.device.toString(),
             ),
             InfoCard(
+              label: 'Display',
+              value: _deviceInfo!.display.toString(),
+            ),
+
+            InfoCard(
               label: 'Fingerprint',
-              value: _deviceInfo!.fingerprint,
+              value: _deviceInfo!.fingerprint.toString(),
             ),
             InfoCard(
               label: 'Hardware',
-              value: _deviceInfo!.hardware,
+              value: _deviceInfo!.hardware.toString(),
             ),
             InfoCard(
+              label: 'Host',
+              value: _deviceInfo!.host.toString(),
+            ),
+            InfoCard(
+              label: 'ID',
+              value: _deviceInfo!.id.toString(),
+            ),
+            InfoCard(
+              label: 'Incremental',
+              value: _deviceInfo!.version.incremental.toString(),
+            ),
+            InfoCard(
+              label: 'Is Physical Device?',
+              value: _deviceInfo!.isPhysicalDevice.toString(),
+            ),
+            InfoCard(
+              label: 'Is Low Ram Device',
+              value: _deviceInfo!.isLowRamDevice.toString(),
+            ),
+
+            InfoCard(
               label: 'Manufacturer',
-              value: _deviceInfo!.manufacturer,
+              value: _deviceInfo!.manufacturer.toString(),
             ),
             InfoCard(
               label: 'Model',
-              value: _deviceInfo!.model,
+              value: _deviceInfo!.model.toString(),
             ),
+            InfoCard(
+              label: 'Product',
+              value: _deviceInfo!.product.toString(),
+            ),
+            InfoCard(
+              label: 'Name',
+              value: _deviceInfo!.name.toString(),
+            ),
+            InfoCard(
+              label: 'Supported 32 Bit Abis',
+              value: _deviceInfo!.supported32BitAbis.toString(),
+            ),
+            InfoCard(
+              label: 'Supported 32 Bit Abis',
+              value: _deviceInfo!.supported64BitAbis.toString(),
+            ),
+
+            InfoCard(
+              label: 'Preview SDK',
+              value: _deviceInfo!.version.previewSdkInt.toString(),
+            ),
+            InfoCard(
+              label: 'RAM Free',
+              value: formatMB(_deviceInfo!.availableRamSize),
+            ),
+            InfoCard(
+              label: 'RAM Total (After reserved deducted for Kernal, Drivers & Firmware)',
+              value: formatMB(_deviceInfo!.physicalRamSize),
+            ),
+            InfoCard(
+              label: 'Security Patch',
+              value: _deviceInfo!.version.securityPatch.toString(),
+            ),
+            InfoCard(
+              label: 'Storage Free',
+              value: formatBytes(_deviceInfo!.freeDiskSize),
+            ),
+            InfoCard(
+              label: 'Storage Total',
+              value: formatBytes(_deviceInfo!.totalDiskSize),
+            ),
+            // systemFeatures is a List<String> so we use InfoCardList
+            // instead of InfoCard which only handles single string values
+            InfoCardList(
+              label: 'System Features',
+              values: _deviceInfo!.systemFeatures,
+            ),
+            InfoCard(
+              label: 'Tags',
+              value: _deviceInfo!.tags.toString(),
+            ),
+            InfoCard(
+              label: 'Type',
+              value: _deviceInfo!.type.toString(),
+            ),
+
           ],
         ),
 
@@ -312,6 +525,58 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
               value: _batteryState?.name ?? 'Unknown',
             ),
 
+          ],
+        ),
+
+        // ── Network Section ────────────────────────────────────
+        InfoSection(
+          title: 'Network',
+          icon: Icons.network_check,
+          children: [
+
+            // connectivityResult is a List<ConnectivityResult> so we
+            // map each result to its name and join them together.
+            // e.g. "wifi, vpn" if connected to both simultaneously
+            // Docs: https://pub.dev/documentation/connectivity_plus/latest/connectivity_plus/ConnectivityResult.html
+            InfoCard(
+              label: 'Connection Type',
+              value: _connectivityResult != null
+                  ? _connectivityResult!
+                      .map((r) => r.name)
+                      .join(', ')
+                  : 'Unknown',
+            ),
+
+            // Wifi details are only meaningful if we're on wifi
+            // We show them anyway so user can see what's available
+            InfoCard(
+              label: 'WiFi Name (SSID)',
+              value: _wifiName ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'WiFi BSSID',
+              value: _wifiBSSID ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'IPv4 Address',
+              value: _wifiIPv4 ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'IPv6 Address',
+              value: _wifiIPv6 ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'Gateway',
+              value: _wifiGateway ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'Subnet Mask',
+              value: _wifiSubmask ?? 'Unavailable',
+            ),
+            InfoCard(
+              label: 'Wifi Broadcast',
+              value: _wifiBroadcast ?? 'Unavailable',
+            ),
           ],
         ),
 
@@ -397,6 +662,110 @@ class InfoSection extends StatelessWidget {
           // We pass our InfoCards here from whoever creates this
           // InfoSection.
           children: children,
+        ),
+      ),
+    );
+  }
+}
+
+
+// ============================================================
+// InfoCardList — A variant of InfoCard specifically for when
+// the value is a list of strings rather than a single value.
+//
+// It shows a collapsed summary by default and expands to show
+// each item on its own line when tapped.
+//
+// We build this as a separate widget instead of modifying
+// InfoCard because InfoCard works perfectly for single values
+// and we don't want to add complexity to something that already
+// works. This is the Single Responsibility Principle — each
+// widget does one thing well.
+// ============================================================
+class InfoCardList extends StatelessWidget {
+  // The label shown in the header (e.g. "System Features")
+  final String label;
+
+  // The list of strings to display when expanded
+  final List<String> values;
+
+  const InfoCardList({
+    super.key,
+    required this.label,
+    required this.values,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.0),
+        child: ExpansionTile(
+          // Show the label and item count in the header so the
+          // user knows how many items are inside before expanding
+          title: Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13.0,
+            ),
+          ),
+
+          // Subtitle shows a preview so the user knows what's
+          // inside without having to expand it
+          subtitle: Text(
+            '${values.length} items — tap to expand',
+            style: const TextStyle(
+              fontSize: 11.0,
+            ),
+          ),
+
+          // Starts collapsed by default — 50+ items expanded
+          // on load would be a terrible user experience
+          initiallyExpanded: false,
+
+          // Build one Text widget per item in the list
+          // Each item gets its own row with a bullet point
+          // and consistent padding
+          children: values.map((item) {
+            // .map() transforms each string in the list into
+            // a widget. This is a core Dart pattern you'll use
+            // constantly — transforming a list of data into a
+            // list of widgets.
+            // Docs: https://api.dart.dev/dart-core/Iterable/map.html
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 4.0,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Bullet point
+                  Text(
+                    '• ',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  // The actual feature string, wrapped in Expanded
+                  // so long strings wrap to the next line instead
+                  // of overflowing off screen
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: const TextStyle(fontSize: 12.0),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          // .toList() converts the mapped Iterable back into a
+          // List<Widget> which is what children: expects
+          }).toList(),
         ),
       ),
     );
@@ -498,4 +867,26 @@ class InfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// Converts bytes to a human readable string
+// Used for disk size which is reported in bytes
+// e.g. 128849018880 → "120.0 GB"
+String formatBytes(int bytes) {
+  if (bytes <= 0) return '0 B';
+  const suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  int i = (log(bytes) / log(1024)).floor();
+  i = i.clamp(0, suffixes.length - 1);
+  double value = bytes / pow(1024, i);
+  return '${value.toStringAsFixed(1)} ${suffixes[i]}';
+}
+
+// Converts megabytes to a human readable string
+// Used for RAM which is reported in MB by AndroidDeviceInfo
+// e.g. 7305 → "7.1 GB"
+String formatMB(int mb) {
+  if (mb <= 0) return '0 MB';
+  if (mb < 1024) return '$mb MB';
+  double gb = mb / 1024;
+  return '${gb.toStringAsFixed(1)} GB';
 }
