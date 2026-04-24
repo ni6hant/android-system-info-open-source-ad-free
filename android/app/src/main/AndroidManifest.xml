@@ -1,4 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.ni6hant.systeminfo">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.ni6hant.systeminfo">
     <application
         android:label="System Info"
         android:name="${applicationName}"
@@ -55,10 +57,15 @@
          Docs: https://developer.android.com/reference/android/Manifest.permission#ACCESS_FINE_LOCATION -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Required by permission_handler package to check and request
-         runtime permissions like location.
-         Docs: https://pub.dev/packages/permission_handler -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Explicitly remove REQUEST_INSTALL_PACKAGES that permission_handler
+     adds internally — we don't need it and Google flags it for review.
+     The tools:node="remove" tells the manifest merger to strip it out
+     even if a dependency tries to add it.
+     Docs: https://developer.android.com/build/manage-manifests#merge-rule-markers -->
+    <uses-permission
+    android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+    tools:node="remove" />
+
 
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
