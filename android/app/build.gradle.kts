@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.system_info"
+    namespace = "com.ni6hant.systeminfo"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +24,7 @@ defaultConfig {
         // Before publishing you MUST change this from com.example
         // to something unique like com.yournname.systeminfo
         // Docs: https://developer.android.com/studio/build/application-id
-        applicationId = "com.example.system_info"
+        applicationId = "com.ni6hant.systeminfo"
 
         // Minimum Android version that can install this app.
         // 21 = Android 5.0 Lollipop — covers 99%+ of active devices.

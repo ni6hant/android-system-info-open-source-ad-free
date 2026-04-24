@@ -1,4 +1,4 @@
-package com.example.system_info
+package com.ni6hant.systeminfo
 
 import io.flutter.embedding.android.FlutterActivity
 
