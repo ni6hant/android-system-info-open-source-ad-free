@@ -1,17 +1,2 @@
-# system_info
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Andrioid System Information which is Open-Source, Ad-free, No Payments and Completely offline
+Every new device I get I need to go through all the data especially if it's a product I review as I have seen [Manufacturer's lying about the specifications of the device](https://ni6hant.com/projectors/hy/300-pro-plus/). So, I decided to create something that can be easily downloaded from the playstore that's not full of crap(full-screen ads, payment screens, annoying naggings, privacy risks permissions access and just NOT BEING SIMPLE).

@@ -12,6 +12,10 @@ import 'package:flutter/material.dart';
 // Docs: https://pub.dev/packages/device_info_plus
 import 'package:device_info_plus/device_info_plus.dart';
 
+// battery_plus gives us access to battery level and charging state
+// Docs: https://pub.dev/packages/battery_plus
+import 'package:battery_plus/battery_plus.dart';
+
 // ============================================================
 // main() — Every Dart program starts here, no exceptions.
 // runApp() inflates the given widget and attaches it to the screen.
@@ -100,6 +104,23 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
   // We'll show a loading spinner while this is true.
   bool _isLoading = true;
 
+    // Holds the current battery percentage (0-100)
+  // Nullable because we haven't fetched it yet on startup
+  int? _batteryLevel;
+
+  // Holds the current charging state as a BatteryState enum
+  // Remember BatteryState can be: charging, discharging, full,
+  // connectedNotCharging, or unknown
+  // Docs: https://pub.dev/documentation/battery_plus/latest/battery_plus/BatteryState.html
+  BatteryState? _batteryState;
+
+  // Battery() is the main class from battery_plus that we use
+  // to query battery information.
+  // We create one instance here and reuse it throughout the app —
+  // creating multiple instances is wasteful.
+  // Docs: https://pub.dev/documentation/battery_plus/latest/battery_plus/Battery-class.html
+  final Battery _battery = Battery();
+
   // ============================================================
   // initState() — Called exactly once when this widget is first
   // inserted into the widget tree. This is the right place to
@@ -110,6 +131,7 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
   void initState() {
     super.initState(); // Always call super first
     _fetchDeviceInfo(); // Start fetching as soon as screen loads
+    _fetchBatteryInfo(); // Fetch battery info and start listening for changes
   }
 
   // ============================================================
@@ -140,6 +162,50 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
   }
 
   // ============================================================
+  // _fetchBatteryInfo() — Fetches battery level and state.
+  //
+  // Unlike device info which never changes, battery info changes
+  // constantly so we do two things here:
+  // 1. Fetch the current values immediately on startup
+  // 2. Subscribe to a stream that gives us live updates whenever
+  //    the battery state changes (e.g. user plugs in charger)
+  //
+  // A Stream is like a pipe that keeps sending you new values
+  // over time, as opposed to a Future which gives you one value
+  // and is done.
+  // Docs on Streams: https://dart.dev/libraries/async/using-streams
+  // ============================================================
+  Future<void> _fetchBatteryInfo() async {
+    // batteryLevel is a Future<int> — it gives us the percentage
+    // once and that's it. We await it to get the actual integer.
+    // Docs: https://pub.dev/documentation/battery_plus/latest/battery_plus/Battery/batteryLevel.html
+    final level = await _battery.batteryLevel;
+
+    // onBatteryStateChanged is a Stream<BatteryState> — it keeps
+    // emitting new values whenever the charging state changes.
+    // .first gets just the current value from the stream right now.
+    // Docs: https://pub.dev/documentation/battery_plus/latest/battery_plus/Battery/onBatteryStateChanged.html
+    final state = await _battery.onBatteryStateChanged.first;
+
+    // Update the UI with what we just fetched
+    setState(() {
+      _batteryLevel = level;
+      _batteryState = state;
+    });
+
+    // Now subscribe to ongoing battery state changes.
+    // listen() is called every time a new value comes through
+    // the stream — so if the user plugs in their charger while
+    // the app is open, this fires and updates the UI automatically.
+    // Docs: https://api.flutter.dev/flutter/dart-async/Stream/listen.html
+    _battery.onBatteryStateChanged.listen((BatteryState newState) {
+      setState(() {
+        _batteryState = newState;
+      });
+    });
+  }
+
+  // ============================================================
   // build() — Called by Flutter whenever it needs to draw this widget.
   // This runs after initState() and again after every setState() call.
   // Docs: https://api.flutter.dev/flutter/widgets/State/build.html
@@ -161,25 +227,275 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
     );
   }
 
-  // ============================================================
-  // _buildInfoList() — Builds the scrollable list of info cards.
-  // We separate this into its own method to keep build() clean.
+// ============================================================
+  // _buildInfoList() — Builds the full scrollable screen content.
+  //
+  // Each InfoSection is a collapsible group of related InfoCards.
+  // We pass children as a list of InfoCard widgets — this is the
+  // same pattern you'll see everywhere in Flutter: a parent widget
+  // takes a list of child widgets and decides how to lay them out.
   // ============================================================
   Widget _buildInfoList() {
-    // ListView is a scrollable list of widgets
-    // Docs: https://api.flutter.dev/flutter/widgets/ListView-class.html
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
 
-        // We'll build info cards here in the next step
-
-        // For now just a placeholder to confirm everything compiles
-        Text(
-          'Device: ${_deviceInfo!.model}',
-          style: const TextStyle(fontSize: 18),
+        // ── Device Section ─────────────────────────────────────
+        // initiallyExpanded: true so the user sees data immediately
+        // on first launch without having to tap anything
+        InfoSection(
+          title: 'Device',
+          icon: Icons.phone_android,
+          initiallyExpanded: true,
+          // Children are sorted alphabetically by label
+          children: [
+            InfoCard(
+              label: 'Android Version',
+              value: _deviceInfo!.version.release,
+            ),
+            InfoCard(
+              label: 'API Level',
+              value: _deviceInfo!.version.sdkInt.toString(),
+            ),
+            InfoCard(
+              label: 'Brand',
+              value: _deviceInfo!.brand,
+            ),
+            InfoCard(
+              label: 'CPU Architecture',
+              value: _deviceInfo!.supportedAbis.join(', '),
+            ),
+            InfoCard(
+              label: 'Device',
+              value: _deviceInfo!.device,
+            ),
+            InfoCard(
+              label: 'Fingerprint',
+              value: _deviceInfo!.fingerprint,
+            ),
+            InfoCard(
+              label: 'Hardware',
+              value: _deviceInfo!.hardware,
+            ),
+            InfoCard(
+              label: 'Manufacturer',
+              value: _deviceInfo!.manufacturer,
+            ),
+            InfoCard(
+              label: 'Model',
+              value: _deviceInfo!.model,
+            ),
+          ],
         ),
+
+        // ── Battery Section ────────────────────────────────────
+        InfoSection(
+          title: 'Battery',
+          icon: Icons.battery_full,
+          children: [
+
+            // _batteryLevel is nullable so we use the null-coalescing
+            // operator ?? to show 'Unknown' if data isn't ready yet.
+            // Docs: https://dart.dev/language/operators#conditional-expressions
+            InfoCard(
+              label: 'Level',
+              value: _batteryLevel != null
+                  ? '$_batteryLevel%'
+                  : 'Unknown',
+            ),
+
+            // _batteryState is a BatteryState enum so we call .name
+            // on it to get a readable string like "charging"
+            // Docs: https://dart.dev/language/enums
+            InfoCard(
+              label: 'State',
+              value: _batteryState?.name ?? 'Unknown',
+            ),
+
+          ],
+        ),
+
       ],
+    );
+  }
+
+
+}
+
+// ============================================================
+// InfoSection — A collapsible section that groups related
+// InfoCards together under a single expandable header.
+//
+// We use Flutter's built-in ExpansionTile widget which handles
+// all the expand/collapse animation for us automatically.
+//
+// Docs: https://api.flutter.dev/flutter/material/ExpansionTile-class.html
+// ============================================================
+class InfoSection extends StatelessWidget {
+  // The title shown in the header (e.g. "Battery", "Device")
+  final String title;
+
+  // The icon shown to the left of the title
+  // IconData is the type for Flutter's built-in icons
+  // Full icon list: https://api.flutter.dev/flutter/material/Icons-class.html
+  final IconData icon;
+
+  // The list of InfoCard widgets shown when expanded
+  final List<Widget> children;
+
+  // Whether the section starts expanded or collapsed
+  // We default to false so everything starts collapsed
+  final bool initiallyExpanded;
+
+  const InfoSection({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Card wraps the ExpansionTile to give it the elevated
+    // surface look consistent with our InfoCards
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+
+      // ClipRRect clips the card's children to its rounded corners
+      // Without this, the ExpansionTile background bleeds outside
+      // the card's rounded edges when expanded
+      // Docs: https://api.flutter.dev/flutter/widgets/ClipRRect-class.html
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.0),
+
+        child: ExpansionTile(
+          // leading is the icon on the left of the header
+          leading: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+
+          // title is the main header text
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15.0,
+            ),
+          ),
+
+          initiallyExpanded: initiallyExpanded,
+
+          // childrenPadding adds padding around the expanded content
+          childrenPadding: const EdgeInsets.symmetric(
+            horizontal: 8.0,
+            vertical: 4.0,
+          ),
+
+          // children is the list of widgets shown when expanded.
+          // We pass our InfoCards here from whoever creates this
+          // InfoSection.
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+
+// ============================================================
+// InfoCard — A reusable widget that displays a single piece
+// of system information as a labeled card.
+//
+// We build this once and reuse it for every single data point
+// in the app. This is a core Flutter principle — don't repeat
+// yourself, build reusable widgets instead.
+//
+// It takes two required parameters:
+// - label: the name of the property (e.g. "Model")
+// - value: the actual value (e.g. "Vivo I2305")
+//
+// Docs on StatelessWidget (this never changes after being built):
+// https://api.flutter.dev/flutter/widgets/StatelessWidget-class.html
+// ============================================================
+class InfoCard extends StatelessWidget {
+  // 'final' means these values can't be changed after the widget
+  // is constructed — which makes sense since a card just displays
+  // what it's given and never modifies it
+  final String label;
+  final String value;
+
+  // This is the constructor. 'required' means you MUST pass these
+  // values when creating an InfoCard — the compiler won't let you
+  // forget them.
+  // Docs: https://dart.dev/language/constructors
+  const InfoCard({
+    super.key,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Card gives us the elevated surface with rounded corners
+    // Docs: https://api.flutter.dev/flutter/material/Card-class.html
+    return Card(
+      // margin adds space OUTSIDE the card, separating cards from
+      // each other in the list
+      // Docs: https://api.flutter.dev/flutter/painting/EdgeInsets-class.html
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+
+      // Padding adds space INSIDE the card, between the card edge
+      // and its content
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+
+        // Row lays its children out horizontally
+        // Docs: https://api.flutter.dev/flutter/widgets/Row-class.html
+        child: Row(
+          // crossAxisAlignment controls vertical alignment inside the Row
+          // 'start' means children align to the top of the row
+          // Docs: https://api.flutter.dev/flutter/rendering/CrossAxisAlignment.html
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            // Expanded makes this widget fill all available horizontal
+            // space. Without it, long text would overflow off screen.
+            // Docs: https://api.flutter.dev/flutter/widgets/Expanded-class.html
+            Expanded(
+              // flex controls how much space this child gets relative
+              // to other Expanded children. flex: 2 means this gets
+              // twice as much space as a flex: 1 sibling.
+              flex: 2,
+              child: Text(
+                label,
+                style: TextStyle(
+                  // Theme.of(context) reads the current app theme
+                  // so our colors always stay consistent
+                  // Docs: https://api.flutter.dev/flutter/material/Theme-class.html
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.0,
+                ),
+              ),
+            ),
+
+            // This gives us a small gap between label and value
+            const SizedBox(width: 8.0),
+
+            // The value gets more space (flex: 3) since values tend
+            // to be longer than labels
+            Expanded(
+              flex: 3,
+              child: Text(
+                value,
+                style: const TextStyle(fontSize: 13.0),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
