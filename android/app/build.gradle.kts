@@ -1,8 +1,28 @@
+// ============================================================
+// build.gradle.kts — Android build configuration
+//
+// This file tells Gradle how to compile and package your app.
+// Docs: https://developer.android.com/build
+// ============================================================
+
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// ============================================================
+// Load signing credentials from key.properties
+// We read them from a separate file so they never end up
+// hardcoded in this file which IS committed to git
+// ============================================================
+val keyPropertiesFile = rootProject.file("../android/key.properties")
+val keyProperties = Properties()
+if (keyPropertiesFile.exists()) {
+    keyProperties.load(FileInputStream(keyPropertiesFile))
 }
 
 android {
@@ -19,34 +39,51 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
-defaultConfig {
-        // Your app's unique identifier on the Play Store.
-        // Before publishing you MUST change this from com.example
-        // to something unique like com.yournname.systeminfo
-        // Docs: https://developer.android.com/studio/build/application-id
+    // ============================================================
+    // signingConfigs — defines HOW to sign the app
+    // We define a 'release' config that reads from key.properties
+    // Docs: https://developer.android.com/build/build-variants#signing
+    // ============================================================
+    signingConfigs {
+        create("release") {
+            keyAlias = keyProperties["keyAlias"] as String
+            keyPassword = keyProperties["keyPassword"] as String
+            storeFile = file(keyProperties["storeFile"] as String)
+            storePassword = keyProperties["storePassword"] as String
+        }
+    }
+
+    defaultConfig {
         applicationId = "com.ni6hant.systeminfo"
-
-        // Minimum Android version that can install this app.
-        // 21 = Android 5.0 Lollipop — covers 99%+ of active devices.
-        // We set this explicitly rather than relying on Flutter's default
-        // so we always know exactly what we're targeting.
-        // Docs: https://developer.android.com/reference/android/os/Build.VERSION_CODES
         minSdk = flutter.minSdkVersion
-
-        // The Android version we've tested and optimized for.
-        // Google requires this to be 33+ for new Play Store submissions.
-        // Docs: https://developer.android.com/google/play/requirements/target-sdk
-        targetSdk = 35
-
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        // debug builds use debug signing — fine for development
+        getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
+        }
+
+        // release builds use our keystore — required for Play Store
+        // Docs: https://developer.android.com/build/build-variants#build-types
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+
+            // Enables code shrinking and obfuscation
+            // Removes unused code to reduce APK size
+            // Docs: https://developer.android.com/build/shrink-code
+            isMinifyEnabled = true
+
+            // Enables resource shrinking — removes unused resources
+            isShrinkResources = true
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

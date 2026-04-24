@@ -1,5 +1,5 @@
 name: system_info
-description: "A new Flutter project."
+description: "Open source, ad-free system information app for Android."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.11.5
@@ -50,6 +50,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -92,3 +93,24 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+
+# flutter_launcher_icons configuration
+# This tells the package where to find our icon and what to generate
+# Docs: https://pub.dev/packages/flutter_launcher_icons
+flutter_launcher_icons:
+  # android: true tells it to generate Android launcher icons
+  android: true
+  # ios: false since we're only targeting Android for now
+  ios: false
+  # path to our source icon
+  image_path: "assets/app_icon.png"
+  # adaptive icons are the modern Android icon format (Android 8+)
+  # they have a foreground layer and a background color separately
+  # so the launcher can apply different shapes (circle, squircle etc)
+  # Docs: https://developer.android.com/guide/practices/ui_guidelines/icon_design_adaptive
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/app_icon.png"
+  # min_sdk_android ensures we also generate legacy icons for
+  # devices below Android 8 that don't support adaptive icons
+  min_sdk_android: 21
