@@ -3,4 +3,4 @@ Every new device I get I need to go through all the data especially if it's a pr
 
 
 # Download & Install
-You can download it directly from  [Play Store](https://play.google.com/store/apps/details?id=com.ni6hant.systeminfo) or Releases Tab.
+You can download it directly from  [Play Store](https://play.google.com/store/apps/details?id=com.ni6hant.systeminfo) or [Releases Tab](https://github.com/ni6hant/android-system-info-open-source-ad-free/releases).

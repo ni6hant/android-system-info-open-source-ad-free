@@ -57,6 +57,8 @@
          Docs: https://developer.android.com/reference/android/Manifest.permission#ACCESS_FINE_LOCATION -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Explicitly remove REQUEST_INSTALL_PACKAGES that permission_handler
      adds internally — we don't need it and Google flags it for review.
      The tools:node="remove" tells the manifest merger to strip it out
