@@ -151,7 +151,7 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
   String? _wifiSubmask;
   String? _wifiBroadcast;
 
-// TODO: BUG: Added this varaible to see why the play store version isn't showing network data. Will be removed once it's fixed.
+// Fixed just missing permissions: Added this varaible to see why the play store version isn't showing network data. Will be removed once it's fixed.
   String? _networkError;
 
   // ============================================================

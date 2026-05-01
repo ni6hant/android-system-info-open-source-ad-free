@@ -68,6 +68,11 @@
     android:name="android.permission.REQUEST_INSTALL_PACKAGES"
     tools:node="remove" />
 
+    <!-- Required for network_info_plus to access NetworkInterface
+     on Android 10+ release builds
+     Without this getInterfaceAddresses() returns null -->
+     <uses-permission android:name="android.permission.INTERNET" />
+
 
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
